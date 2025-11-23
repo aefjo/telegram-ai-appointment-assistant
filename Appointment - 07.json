@@ -1,0 +1,873 @@
+{
+  "name": "Appointment - 07",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -544,
+        -16
+      ],
+      "id": "118d64d5-59d7-45c0-a88c-c0d369b900b2",
+      "name": "Telegram Trigger",
+      "webhookId": "6c89a392-d2f1-4705-b301-575b79647bcc",
+      "credentials": {
+        "telegramApi": {
+          "id": "8UjQGtBxEcWyRoSM",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "Anda adalah Asisten AI bernama **Aefjo AI**.\nTugas Anda adalah menangani pemesanan janji temu (appointment) melalui Telegram.\n\nAnda harus:\n- Menggunakan memori sederhana untuk melacak progres percakapan.\n- Menyimpan dan mengambil data dari Google Sheets.\n- Selalu bersikap sopan, ramah, dan memandu pengguna langkah demi langkah.\n- Menjaga percakapan agar tetap singkat dan jelas.\n- Menggunakan gaya chat Telegram.\n\n====================================================\nMAIN MENU & GREETING\n====================================================\n\nKetika pengguna mengirim pesan pertama kali, sambut dengan:\n\n\"Halo, selamat datang! Ada yang bisa saya bantu?\nSilakan pilih opsi:\n\n1. Janji Temu Baru\n2. Janji Temu Saya yang Akan Datang\n3. Reschedule Janji Temu\n4. Batalkan Janji Temu\"\n\nLalu tunggu pilihan pengguna.\n\n====================================================\nFLOW: JANJI TEMU BARU\n====================================================\n\n(a) Pencarian Customer\n- Cari customer berdasarkan chat_id pengguna.\n- Jika menemukan customer, tampilkan daftar dan minta pengguna memilih salah satu.\n- Jika tidak ada customer, atau pengguna memilih “Tambah Customer Baru”, maka mintalah:\n  • Nama\n  • Umur\n  • Jenis kelamin\n- Simpan ke sheet Customers.\n- Setelah tersimpan, ambil ulang daftar customer dan tampilkan:\n  customer_id, nama, umur, gender.\n- Minta pengguna memilih customer (boleh dengan angka).\n\n----------------------------------------------------\n\n(b) Pemilihan Tanggal\n- Ambil tanggal & waktu hari ini dari sistem.\n- Generate 7 hari (hari ini + 6).\n- Hapus hari yang sudah penuh (fully booked).\n- Tanyakan tanggal mana yang ingin dipilih pengguna.\n\n----------------------------------------------------\n\n(c) Pemilihan Jam (Time Slot)\n- Gunakan jam kerja dari sheet Config (format: 10:00-18:00).\n- Bagi menjadi slot 60 menit.\n- Hapus slot yang sudah dibooking di sheet Appointments.\n- Hapus slot not_available berdasarkan Config (format: YYYY-MM-DD HH:MM to HH:MM).\n- Jika pengguna memilih tanggal hari ini:\n  Tampilkan hanya slot setelah waktu sekarang.\n- Tampilkan slot yang tersedia dan minta pengguna memilih.\n\n----------------------------------------------------\n\n(d) Konfirmasi Booking\n- Setelah semua data lengkap, tambahkan appointment ke sheet Appointments.\n- Kirim pesan:\n\n\"Appointment berhasil dibooking!\nCustomer: {name}\nTanggal: {date}\nJam: {time}\nStatus: Confirmed\"\n\n====================================================\nFLOW: MY UPCOMING APPOINTMENTS\n====================================================\n\n- Ambil tanggal & waktu sekarang.\n- Cari semua appointment pengguna (berdasarkan chat_id) yang tanggalnya masih di masa depan.\n- Tampilkan daftar:\n  • Nama customer\n  • Tanggal\n  • Jam\n\n====================================================\nFLOW: RESCHEDULE APPOINTMENT\n====================================================\n\n- Cari semua appointment pengguna yang masih aktif & belum lewat tanggal.\n- Tampilkan daftar:\n  appointment_id, nama customer, tanggal, jam.\n- Minta pengguna memilih appointment yang akan dipindahkan.\n\nLalu ulangi langkah:\n1. Pilih tanggal (7 hari ke depan, exclude fully booked)\n2. Pilih jam (cek jam kerja, slot terisi, slot unavailable)\n3. Jika tanggal hari ini → tampilkan slot setelah waktu sekarang\n\nUpdate appointment lama dengan tanggal & jam baru.\n\nKirim pesan:\n\n\"Appointment Anda telah berhasil di-reschedule.\nDetail baru:\nCustomer: {name}\nTanggal: {new_date}\nJam: {new_time}\"\n\n====================================================\nFLOW: CANCEL APPOINTMENT\n====================================================\n\n- Ambil tanggal & waktu sekarang.\n- Cari semua appointment pengguna yang masih di masa depan.\n- Tampilkan daftar:\n  appointment_id, tanggal, jam.\n- Minta pengguna memilih appointment yang ingin dibatalkan.\n- Update status appointment di sheet Appointments menjadi Cancelled.\n\nKirim pesan:\n\n\"Appointment Anda pada {date} pukul {time} telah dibatalkan.\"\n\n====================================================\nGOOGLE SHEETS STRUCTURE\n====================================================\n\nCustomers:\n- customer_id\n- chat_id\n- name\n- age\n- gender\n\nAppointments:\n- appointment_id\n- customer_id\n- chat_id\n- date\n- time\n- status\n\nConfig:\n- key\n- value\n(Contoh: working_hours = 10:00-18:00)\n\n====================================================\nMEMORY RULES\n====================================================\n\n- Selalu ingat langkah terakhir pengguna:\n  • menu utama\n  • pemilihan customer\n  • pemilihan tanggal\n  • pemilihan jam\n- Jika pengguna mengirim pesan tidak sesuai, jawab:\n  \"Maaf, saya tidak mengerti. Silakan balas dengan salah satu opsi yang tersedia.\"\n- Jika pengguna kembali setelah jeda waktu lama:\n  Lanjutkan dari langkah terakhir yang diingat.\n\n====================================================\nSTYLE GUIDE\n====================================================\n\n- Pesan harus singkat, jelas, dan ramah.\n- Gunakan angka untuk pilihan (1, 2, 3, ...).\n- Satu pengguna boleh memiliki banyak customer.\n- Satu customer boleh memiliki banyak appointment.\n- Selalu lakukan konfirmasi sebelum finalisasi booking.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        128,
+        -16
+      ],
+      "id": "2d25c0cf-ef71-4179-b072-6824f8a788e1",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        208
+      ],
+      "id": "ec14f04c-9762-4827-9e12-2007fcd9c2c9",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "p9AbgftQCzESpi9r",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.message.chat.id }}",
+        "contextWindowLength": 6
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -192,
+        208
+      ],
+      "id": "5e68f22f-baec-477c-8931-fe127958d47d",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": "={{ false }}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        -16
+      ],
+      "id": "6c1e4e77-a50d-4639-9c15-20916ccd6c51",
+      "name": "Send a text message",
+      "webhookId": "43eef79f-a7ae-49d5-aa38-1d3ebec067eb",
+      "credentials": {
+        "telegramApi": {
+          "id": "8UjQGtBxEcWyRoSM",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 322765679,
+          "mode": "list",
+          "cachedResultName": "Config",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=322765679"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -64,
+        208
+      ],
+      "id": "6604bb77-5956-4843-88e7-651f332c236f",
+      "name": "Get Config",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Customers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "chat_id",
+              "lookupValue": "={{ $json.message.chat.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        64,
+        208
+      ],
+      "id": "349b54bc-ad44-44b5-8fcf-53949d0b8076",
+      "name": "Get Customer List For User",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Customers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_id": "={{ $now.toMillis() }}",
+            "chat_id": "={{ $json.message.chat.id }}",
+            "username": "={{ $json.message.from.username }}",
+            "name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('name', ``, 'string') }}",
+            "age": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('age', ``, 'string') }}",
+            "gender": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('gender', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "username",
+              "displayName": "username",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "age",
+              "displayName": "age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gender",
+              "displayName": "gender",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        192,
+        208
+      ],
+      "id": "8c9def7e-4f20-42b6-88a4-d495fc973055",
+      "name": "Add Customer",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 658972923,
+          "mode": "list",
+          "cachedResultName": "Appointments",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=658972923"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "chat_id",
+              "lookupValue": "={{ $json.message.chat.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        320,
+        208
+      ],
+      "id": "36efea6e-af2a-41c2-a59c-687f3fc3cc43",
+      "name": "Get User Appointments",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 658972923,
+          "mode": "list",
+          "cachedResultName": "Appointments",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=658972923"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "appointment_id": "={{ $now.toMillis() }}",
+            "customer_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('customer_id', ``, 'string') }}",
+            "chat_id": "={{ $json.message.chat.id }}",
+            "date": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('date', ``, 'string') }}",
+            "time": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('time', ``, 'string') }}",
+            "status": "Confirmed"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "appointment_id",
+              "displayName": "appointment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        448,
+        208
+      ],
+      "id": "9a1ed969-b40d-4d11-bfae-2239e9d29a59",
+      "name": "Add Appointment",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 658972923,
+          "mode": "list",
+          "cachedResultName": "Appointments",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=658972923"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        576,
+        208
+      ],
+      "id": "f859a990-ac52-45c3-8253-132c4f397e0d",
+      "name": "Get All Appointments",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 658972923,
+          "mode": "list",
+          "cachedResultName": "Appointments",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=658972923"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "appointment_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('appointment_id__using_to_match_', ``, 'string') }}",
+            "date": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('date', ``, 'string') }}",
+            "time": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('time', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "appointment_id"
+          ],
+          "schema": [
+            {
+              "id": "appointment_id",
+              "displayName": "appointment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        704,
+        208
+      ],
+      "id": "9657a879-ad1f-452f-986b-8bc1a2a4e75f",
+      "name": "Reschedule Appointment",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA",
+          "mode": "list",
+          "cachedResultName": "Data Appointment - (n8n)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 658972923,
+          "mode": "list",
+          "cachedResultName": "Appointments",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XUQlNQXjoNUHhz1Ed0ODb-uuko7qS3d8wGEowHWPuZA/edit#gid=658972923"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "Cancelled",
+            "appointment_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('appointment_id__using_to_match_', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "appointment_id"
+          ],
+          "schema": [
+            {
+              "id": "appointment_id",
+              "displayName": "appointment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_id",
+              "displayName": "customer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        336
+      ],
+      "id": "29e17414-a116-483f-b7f2-b6fd683367db",
+      "name": "Cancel Appointment",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Vr4dTUqMYeLIU8Vu",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "timezone": "Asia/Jakarta"
+        }
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        528,
+        432
+      ],
+      "id": "819d3b0e-608c-4a8e-83d5-e1f582260234",
+      "name": "Date & Time"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Config": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Customer List For User": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Customer": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Appointments": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Appointments": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reschedule Appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6f4dbc1a-a0d8-4199-b0a2-db93f1b0a62d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "84eeee32da65a7d85df8d93603f4d8641212ada127f04ddf2a19b9b88626f429"
+  },
+  "id": "rE6EPLz8d03wLSWp",
+  "tags": []
+}
